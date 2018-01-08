@@ -6,8 +6,15 @@ RAMDISKMAX=
 # Include config file
 if [ ! -z "$1" ] && [ -f "$1" ]; then
 	. "$1"
-elif [ -f "$(dirname $0)/vendor.cfg" ]; then
-	. "$(dirname $0)/vendor.cfg"
+elif [ -f "$(dirname $0)/custom.cfg" ]; then
+	. "$(dirname $0)/custom.cfg"
+else
+	cat <<-EOF
+	No default configuration file found, please specify a configuration file as first argument:
+	
+	    $(0) /path/to/ubuntuiso.cfg
+	
+	EOF
 fi
 
 function cleanup() {
@@ -64,8 +71,8 @@ function replVars {
 		KEYBOARD_LAYOUT_VARIANT
 		SETUP_LANGUAGE
 		SETUP_LOCALE
-		VENDOR
-		VENDOR_LC
+		TITLE
+		TITLE_LC
 		UBUNTU_ARCH
 		UBUNTU_VERSION
 		UBUNTU_SUBREL
@@ -113,7 +120,7 @@ instPkgs \
 	/usr/bin/mkpasswd:whois
 
 
-# Settings that can be overridden in the vendor.cfg (default) or file specified on the cli
+# Settings that can be overridden in the default.cfg or file specified on the cli
 KEYBOARD_LAYOUT_CODE=${KEYBOARD_LAYOUT_CODE:-"us"}
 KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT:-"English (US)"}
 KEYBOARD_LAYOUT_VARIANT=${KEYBOARD_LAYOUT_VARIANT:-"English (US)"}
@@ -121,8 +128,8 @@ BOOT_TIMEOUT=${BOOT_TIMEOUT:-"10"}
 SETUP_LANGUAGE=${SETUP_LANGUAGE:-"en"}
 SETUP_LOCALE=${SETUP_LOCALE:-"en_US.UTF-8"}
 
-VENDOR=${VENDOR:-"Custom"}
-VENDOR_LC=$(echo "$VENDOR"|tr A-Z a-z|sed -e "s/ /-/g")
+TITLE=${TITLE:-"Custom"}
+TITLE_LC=$(echo "$TITLE"|tr A-Z a-z|sed -e "s/ /-/g")
 
 UBUNTU_ARCH=${UBUNTU_ARCH:-"amd64"}
 UBUNTU_VERSION=${UBUNTU_VERSION:-"16.04"}
@@ -170,15 +177,15 @@ DATE=$(date --iso-8601)
 DATE_SHORT=$(date +%Y%m%d)
 
 # Ensure the Volume length isn't longer than 32 characters
-VOLUME="${VENDOR} Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE}"
+VOLUME="${TITLE} Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE}"
 if [ ${#VOLUME} -gt 32 ]; then
 	echo "Volume length too long for '${VOLUME}'"
-	VOLUME="${VENDOR} Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
+	VOLUME="${TITLE} Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
 	if [ ${#VOLUME} -gt 32 ]; then
-		echo "Volume '$VOLUME' also not short enough, trimming vendor name..."
+		echo "Volume '$VOLUME' also not short enough, trimming title name..."
 		BVOLUME=" Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
 		MLEN=$[32 - ${#BVOLUME}]
-		VOLUME="${VENDOR::${MLEN}}${BVOLUME}"
+		VOLUME="${TITLE::${MLEN}}${BVOLUME}"
 	fi
 	echo "New volume name: '${VOLUME}'"
 fi
@@ -186,7 +193,7 @@ fi
 # This is Ubuntu specific at the moment
 ISOURL="http://releases.ubuntu.com/${UBUNTU_VERSION}/ubuntu-${UBUNTU_VERSION}${UBUNTU_SUBREL}-server-${UBUNTU_ARCH}.iso"
 ISOFILE="${ISODOWN}/$(echo $ISOURL|sed -e 's#.*/\(.*\)$#\1#')"
-OUTIMAGE="$(echo $ISOURL|sed -e 's#.*/\(.*\)\.iso$#\1#')-${VENDOR_LC}-${DATE}.iso"
+OUTIMAGE="$(echo $ISOURL|sed -e 's#.*/\(.*\)\.iso$#\1#')-${TITLE_LC}-${DATE}.iso"
 
 echo
 echo "Generating $OUTIMAGE from $(basename ${ISOFILE}) for Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL}"
@@ -292,9 +299,9 @@ sudo mkdir -p $CDDIR/scripts
 sudo cp -rp src/scripts/* $CDDIR/scripts/
 sudo chmod a+x $CDDIR/scripts/*.sh
 
-if [ -f "${CDDIR}/scripts/${VENDOR_LC}.sh" ]; then
-	echo "  - Adding ${VENDOR_LC}.sh as preseed/late_command"
-	echo "d-i preseed/late_command string /cdrom/scripts/${VENDOR_LC}.sh" | sudo tee -a ${CDDIR}/preseed/${VENDOR_LC}.seed > /dev/null
+if [ -f "${CDDIR}/scripts/${TITLE_LC}.sh" ]; then
+	echo "  - Adding ${TITLE_LC}.sh as preseed/late_command"
+	echo "d-i preseed/late_command string /cdrom/scripts/${TITLE_LC}.sh" | sudo tee -a ${CDDIR}/preseed/${TITLE_LC}.seed > /dev/null
 fi
 
 echo "  - fix MD5 checksum file"

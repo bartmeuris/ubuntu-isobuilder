@@ -6,7 +6,7 @@ TGTPREFIX=
 [ -n "${TARGET}" ] && TGTPREFIX="in-target"
 
 if [ -z "${AUTHORIZED_KEYS_FILE}" ] || [ ! -f "${AUTHORIZED_KEYS_FILE}" ];  then
-	[ -n "${VENDOR}" ] && AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys.${VENDOR}"
+	[ -n "${TITLE}" ] && AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys.${TITLE}"
 
 	if [ -z "${AUTHORIZED_KEYS_FILE}" ] || [ ! -f "${AUTHORIZED_KEYS_FILE}" ]; then
 		AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys"
