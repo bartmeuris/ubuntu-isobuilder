@@ -6,8 +6,8 @@ function cleanup() {
 		return
 	}
 	echo "Cleaning up..."
-	sudo umount ${CDDIR} > /dev/null 2>&1 || true
-	sudo umount $CDMOUNT >/dev/null 2>&1 || true
+	[ -n "$(mount | grep "${CDDIR}")" ] && sudo umount ${CDDIR} > /dev/null 2>&1
+	[ -n "$(mount | grep "${CDMOUNT}")" ] && sudo umount ${CDMOUNT} > /dev/null 2>&1
 	[ -d "$TMPBASE" ] && sudo rm -rf ${TMPBASE} || true
 }
 
