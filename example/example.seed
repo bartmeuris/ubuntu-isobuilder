@@ -1,1 +1,2 @@
+# Just include the default "custom.seed"
 d-i preseed/include string custom.seed
