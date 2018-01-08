@@ -208,17 +208,22 @@ CDDIR="${TMPBASE}/cddir"
 OVERLAY="${TMPBASE}/overlay"
 
 # Ensure the Volume length isn't longer than 32 characters
-VOLUME="${TITLE} Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE}"
-if [ ${#VOLUME} -gt 32 ]; then
-	echo "Volume length too long for '${VOLUME}'"
-	VOLUME="${TITLE} Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
+if [ -z "${VOLUME}"]; then
+	VOLUME="${TITLE} Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE}"
 	if [ ${#VOLUME} -gt 32 ]; then
-		echo "Volume '$VOLUME' also not short enough, trimming title name..."
-		BVOLUME=" Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
-		MLEN=$[32 - ${#BVOLUME}]
-		VOLUME="${TITLE::${MLEN}}${BVOLUME}"
+		echo "Volume length too long for '${VOLUME}'"
+		VOLUME="${TITLE} Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
+		if [ ${#VOLUME} -gt 32 ]; then
+			echo "Volume '$VOLUME' also not short enough, trimming title name..."
+			BVOLUME=" Ubnt ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE_SHORT}"
+			MLEN=$[32 - ${#BVOLUME}]
+			VOLUME="${TITLE::${MLEN}}${BVOLUME}"
+		fi
+		echo "New volume name: '${VOLUME}'"
 	fi
-	echo "New volume name: '${VOLUME}'"
+elif [ ${#VOLUME} -gt 32 ]; then
+	echo "!!! WARNING: provided volume name '${VOLUME}' is longer than 32 - stripping"
+	VOLUME="${VOLUME::32}"
 fi
 
 echo
