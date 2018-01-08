@@ -1,12 +1,15 @@
 #!/bin/sh
 
+[ -f "$(dirname $0)/env" ] && . "$(dirname $0)/env"
+
 TARGET=
 TGTPREFIX=
+
 [ -d "/target" ] && TARGET="/target"
 [ -n "${TARGET}" ] && TGTPREFIX="in-target"
 
 if [ -z "${AUTHORIZED_KEYS_FILE}" ] || [ ! -f "${AUTHORIZED_KEYS_FILE}" ];  then
-	[ -n "${TITLE}" ] && AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys.${TITLE}"
+	[ -n "${TITLE_LC}" ] && AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys.${TITLE_LC}"
 
 	if [ -z "${AUTHORIZED_KEYS_FILE}" ] || [ ! -f "${AUTHORIZED_KEYS_FILE}" ]; then
 		AUTHORIZED_KEYS_FILE="$(dirname $0)/authorized_keys"
@@ -21,7 +24,7 @@ for U in ${TARGET}/root ${TARGET}/home/*; do
 	[ ! -d "${U}" ] && continue
 	CUSER=$(echo ${U}|sed -e 's#.*/\(.*\)$#\1#')
 	UDIR=$U
-	[ -n "${TARGET}" ] && UDIR=$(echo ${U}|sed -e "s#^${TARGET}\(/.*\)#\1#")
+	[ -n "${TARGET}" ] && UDIR=$(echo ${U}|sed -e "s@^${TARGET}\(/.*\)@\1@")
 	echo "User ${CUSER}: Adding ssh authorized_keys file from ${AUTHORIZED_KEYS_FILE}"
 	# Set up SSH keys
 	mkdir -p ${U}/.ssh/
