@@ -1,21 +1,4 @@
 #!/bin/bash
-echo "Loading settings..."
-DEBUG=
-RAMDISKMAX=
-
-# Include config file
-if [ ! -z "$1" ] && [ -f "$1" ]; then
-	. "$1"
-elif [ -f "$(dirname $0)/custom.cfg" ]; then
-	. "$(dirname $0)/custom.cfg"
-else
-	cat <<-EOF
-	No default configuration file found, please specify a configuration file as first argument:
-	
-	    $(0) /path/to/ubuntuiso.cfg
-	
-	EOF
-fi
 
 function cleanup() {
 	[ -n "$DEBUG" ] && {
@@ -111,6 +94,43 @@ function instPkgs {
 		sudo modprobe aufs
 	fi
 }
+
+echo "Loading settings..."
+DEBUG=
+RAMDISKMAX=
+DATE=$(date --iso-8601)
+DATE_SHORT=$(date +%Y%m%d)
+
+CONFIGFILE=
+CONFIGDIR=
+BASEDIR=$(readlink -f "$(dirname $0)")
+if [ ! -z "${1}" ] && [ -d "${1}" ]; then
+	[ -z "${CONFIGFILE}" ] && [ -f "${1}/$(basename ${1}).cfg" ] && CONFIGFILE="${1}/$(basename "${1}").cfg"
+	[ -z "${CONFIGFILE}" ] && [ -f "${1}/iso.cfg" ] && CONFIGFILE="${1}/iso.cfg"
+	CONFIGDIR="${1}"
+elif [ ! -z "${1}" ] && [ -f "${1}" ]; then
+	CONFIGFILE="${1}"
+	CONFIGDIR=$(dirname "${CONFIGFILE}")
+fi
+
+
+[ -z "${CONFIGFILE}" ] && echo "WARNING: No configuration found or specified"
+if [ -z "${CONFIGDIR}" ]; then
+	echo "WARNING: No configuration directory found"
+	CONFIGDIR=${BASEDIR}
+fi
+CONFIGDIR=$(readlink -f "${CONFIGDIR}")
+
+# Include config file
+
+if [ -n "${CONFIGFILE}" ]; then
+	CONFIGFILE=$(readlink -f "${CONFIGFILE}")
+	echo "- Loading config file ${CONFIGFILE}"
+	. "${CONFIGFILE}"
+fi
+
+
+# Ensure all dependencies are installed
 instPkgs \
 	/sbin/mount.aufs:aufs-tools \
 	/usr/bin/mkisofs:genisoimage \
@@ -121,25 +141,38 @@ instPkgs \
 
 
 # Settings that can be overridden in the default.cfg or file specified on the cli
+## Determine title
+TITLE=${TITLE:-"Custom"}
+[ -z "${TITLE_LC}" ] && TITLE_LC=$(echo "$TITLE"|tr A-Z a-z|sed -e "s/ /-/g")
+TITLE_LC=$(echo "$TITLE_LC"|tr A-Z a-z|sed -e "s/ /-/g")
+
+## Ubuntu version and architecture
+UBUNTU_ARCH=${UBUNTU_ARCH:-"amd64"}
+UBUNTU_VERSION=${UBUNTU_VERSION:-"16.04"}
+UBUNTU_SUBREL=${UBUNTU_SUBREL:-".3"}
+## Source ISO settings
+### Where the source ISO will be searched for/downloaded to
+ISODOWN=${ISODOWN:-$(readlink -f $(dirname $0)/isodown)}
+### ISO source URL, default = ubuntu, can be overridden, but you're on your own
+ISOURL="${ISOURL:-"http://releases.ubuntu.com/${UBUNTU_VERSION}/ubuntu-${UBUNTU_VERSION}${UBUNTU_SUBREL}-server-${UBUNTU_ARCH}.iso"}"
+ISOFILE="${ISODOWN}/$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)$#\1#')"
+OUTIMAGE="$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)\.iso$#\1#')-${TITLE_LC}-${DATE}.iso"
+
+## Keyboard layout, language, locale...
 KEYBOARD_LAYOUT_CODE=${KEYBOARD_LAYOUT_CODE:-"us"}
 KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT:-"English (US)"}
 KEYBOARD_LAYOUT_VARIANT=${KEYBOARD_LAYOUT_VARIANT:-"English (US)"}
 BOOT_TIMEOUT=${BOOT_TIMEOUT:-"10"}
 SETUP_LANGUAGE=${SETUP_LANGUAGE:-"en"}
 SETUP_LOCALE=${SETUP_LOCALE:-"en_US.UTF-8"}
-
-TITLE=${TITLE:-"Custom"}
-TITLE_LC=$(echo "$TITLE"|tr A-Z a-z|sed -e "s/ /-/g")
-
-UBUNTU_ARCH=${UBUNTU_ARCH:-"amd64"}
-UBUNTU_VERSION=${UBUNTU_VERSION:-"16.04"}
-UBUNTU_SUBREL=${UBUNTU_SUBREL:-".3"}
-
 COUNTRY=${COUNTRY:-"BE"}
 TIMEZONE=${TIMEZONE:-"Europe/Brussels"}
+
+## NTP configuration
 NTP_SERVER=${NTP_SERVER:-"$(echo $COUNTRY|tr A-Z a-z).pool.ntp.org"}
 NTP_ENABLED=${NTP_ENABLED:-"true"}
 
+## Network configuration
 NET_DEF_IP=${NET_DEF_IP:-""}
 NET_DEF_GW=${NET_DEF_GW:-""}
 NET_DEF_MASK=${NET_DEF_MASK:-"255.255.255.0"}
@@ -147,34 +180,32 @@ NET_DEF_DNS=${NET_DEF_DNS:-"8.8.8.8 8.8.4.4"}
 NET_DEF_HOST=${NET_DEF_HOST:-"host"}
 NET_DEF_DOMAIN=${NET_DEF_DOMAIN:-"default.domain"}
 
+## Package selection
 INSTALL_TASKSEL=${INSTALL_TASKSEL:-"standard, ssh-server"}
 INSTALL_PACKAGES=${INSTALL_PACKAGES:-"openssh-server openssh-client python-minimal vim tree htop wget curl ntp netcat pv socat"}
 
+## Username/password config
 USER_NAME=${USER_NAME:-"ubuntu"}
 HASH_ALGO=${HASH_ALGO:-"sha-512"}
 
-# Set the default password
+### Set the default password
 if [ -z "$USER_PASSWORD_ENC" ] && [ -z "${USER_PASSWORD}" ]; then
 	USER_PASSWORD="ubuntu"
 	echo "- !! WARNING!!! Setting default password for user '${USER_NAME}'."
 fi
-# If no hashed password was provided, hash the password now.
+### If no hashed password was provided, hash the password now.
 if [ -z "$USER_PASSWORD_ENC" ] && [ -n "${USER_PASSWORD}" ]; then
 	echo "- Hashing insecure password with ${HASH_ALGO} for user '${USER_NAME}'"
 	USER_PASSWORD_ENC=$(echo -e "${USER_PASSWORD}" | /usr/bin/mkpasswd --stdin -m ${HASH_ALGO} -S $(/usr/bin/pwgen -ns 16 1))
 	echo "- Hashed password: '${USER_PASSWORD_ENC}'"
 fi
 
-# Define some basic directories
-ISODOWN=${ISODOWN:-$(readlink -f $(dirname $0)/isodown)}
+# Internal/temporary directory locations
 TMPBASE="/tmp/isobuild.$$"
 [ -n "$DEBUG" ] && TMPBASE="/tmp/isobuild"
 CDMOUNT="${TMPBASE}/mount"
 CDDIR="${TMPBASE}/cddir"
 OVERLAY="${TMPBASE}/overlay"
-
-DATE=$(date --iso-8601)
-DATE_SHORT=$(date +%Y%m%d)
 
 # Ensure the Volume length isn't longer than 32 characters
 VOLUME="${TITLE} Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL} ${DATE}"
@@ -189,11 +220,6 @@ if [ ${#VOLUME} -gt 32 ]; then
 	fi
 	echo "New volume name: '${VOLUME}'"
 fi
-
-# This is Ubuntu specific at the moment
-ISOURL="http://releases.ubuntu.com/${UBUNTU_VERSION}/ubuntu-${UBUNTU_VERSION}${UBUNTU_SUBREL}-server-${UBUNTU_ARCH}.iso"
-ISOFILE="${ISODOWN}/$(echo $ISOURL|sed -e 's#.*/\(.*\)$#\1#')"
-OUTIMAGE="$(echo $ISOURL|sed -e 's#.*/\(.*\)\.iso$#\1#')-${TITLE_LC}-${DATE}.iso"
 
 echo
 echo "Generating $OUTIMAGE from $(basename ${ISOFILE}) for Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL}"
@@ -257,10 +283,25 @@ if [ -n "$DO_RSYNC" ]; then
 	sudo /usr/bin/rsync -a -H --exclude=TRANS.TBL --del $CDMOUNT/ $CDDIR
 fi
 
+function copyFileTo() {
+	DEST=$1
+	shift 1
+	for F in $*; do
+		SRC=
+		if [ -f "${CONFIGDIR}/$F" ]; then
+			SRC="${CONFIGDIR}/$F"
+		elif [ -f "${BASEDIR}/src/$F" ]; then
+			SRC="${BASEDIR}/src/$F"
+		fi
+		[ -z "${SRC}" ] && return 1
+		sudo cp ${SRC} ${CDDIR}/${DEST}
+	done
+}
+
 # Now start customizing the image in the ${CDIR} directory
 echo "- Preparing image..."
 echo "  - Copying grub boot menu"
-sudo cp src/grubmenu/txt.cfg $CDDIR/isolinux/txt.cfg
+copyFileTo /isolinux/txt.cfg txt.cfg
 echo "  - updating variables in $CDDIR/isolinux/txt.cfg"
 replVars $CDDIR/isolinux/txt.cfg
 
@@ -284,24 +325,32 @@ echo "  - Set boot timeout to ${BOOT_TIMEOUT} seconds"
 sudo sed -i -e "s/timeout .*/timeout ${BOOT_TIMEOUT}0/" $CDDIR/isolinux/isolinux.cfg
 
 # Preseed files
-echo "  - copy preseed files from src/preseed/ to /preseed/"
+echo "  - Copy preseed files from src/preseed/ to /preseed/"
 sudo mkdir -p $CDDIR/preseed/
-for F in src/preseed/*.seed; do
-	echo "  - Copy preseed file $F to $CDDIR/preseed/"
-	sudo cp $F $CDDIR/preseed/
-	echo "  - updating variables in $F"
-	replVars "$CDDIR/preseed/$(basename $F)"
+for F in ${BASEDIR}/src/*.seed ${CONFIGDIR}/*.seed; do
+	[ ! -f "$F" ] && continue
+	echo "   - Copy preseed file $F to $CDDIR/preseed/"
+	sudo cp ${F} ${CDDIR}/preseed/
+	echo "   - Updating variables in ${CDDIR}/preseed/$(basename $F)"
+	replVars "${CDDIR}/preseed/$(basename $F)"
 done
 
 # late_command scripts
-echo "  - copy scripts from src/scripts/ to /scripts/ and set executable"
+echo "  - Copy init files from src/init/ to /scripts/"
 sudo mkdir -p $CDDIR/scripts
-sudo cp -rp src/scripts/* $CDDIR/scripts/
+sudo cp -rp ${BASEDIR}/src/init/* $CDDIR/scripts/
+echo "  - Copy init files from ${CONFIGDIR}/init/ to /scripts/"
+sudo cp -rp ${CONFIGDIR}/init/* $CDDIR/scripts/ 2>/dev/null || true
+echo "  - Set all scripts in /scripts/ to be executable"
 sudo chmod a+x $CDDIR/scripts/*.sh
 
-if [ -f "${CDDIR}/scripts/${TITLE_LC}.sh" ]; then
-	echo "  - Adding ${TITLE_LC}.sh as preseed/late_command"
-	echo "d-i preseed/late_command string /cdrom/scripts/${TITLE_LC}.sh" | sudo tee -a ${CDDIR}/preseed/${TITLE_LC}.seed > /dev/null
+INITSCRIPT=
+[ -z "${INITSCRIPT}" ] && [ -f "${CDDIR}/scripts/${TITLE_LC}.sh" ] && INITSCRIPT="${TITLE_LC}.sh"
+[ -z "${INITSCRIPT}" ] && [ -f "${CDDIR}/scripts/custom.sh" ] && INITSCRIPT="custom.sh"
+
+if [ -n "${INITSCRIPT}" ]; then
+	echo "  - Adding ${INITSCRIPT} as preseed/late_command"
+	echo "d-i preseed/late_command string /cdrom/scripts/${INITSCRIPT}" | sudo tee -a ${CDDIR}/preseed/${TITLE_LC}.seed > /dev/null
 fi
 
 echo "  - fix MD5 checksum file"
