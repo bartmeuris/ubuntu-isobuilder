@@ -4,9 +4,17 @@ Script to easily build Ubuntu ISO images.
 
 ## How to use
 
-To create a custom image configuration, make a copy of the example folder, and then edit the `iso.cfg` file to reflect the desired changes.
+This script expects to run inside a [Vagrant](http://www.vagrantup.com) box, so:
 
-Then, run the `mkiso.sh` script, providing the new directory where your configuration is located, and an ISO image will be built
+* download and install [Vagrant](http://www.vagrantup.com)
+* Clone this repository or fork it and check it out.
+* Create a copy of the `example` folder, under the same directory and give it an appropriate name (for example `custom-iso`)
+* Edit the `iso.cfg` in your new folder to reflect the desired changes and do other customizations.
+* Launch the Vagrant box (`vagrant up`)
+* SSH into the vagrant box (`vagrant ssh`)
+* Change to the `/vagrant` folder and run `./mkiso.sh ./custom-iso`
+
+You should now have a working ISO file if everything went well.
 
 ## Features
 
