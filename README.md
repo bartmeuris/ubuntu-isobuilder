@@ -14,7 +14,7 @@ This script expects to run inside a [Vagrant](http://www.vagrantup.com) box, so:
 * SSH into the vagrant box (`vagrant ssh`)
 * Change to the `/vagrant` folder and run `./mkiso.sh ./custom-iso`
 
-You should now have a working ISO file if everything went well.
+You should now have a working ISO file in the `isos` subfolder of where the config directory is located if everything went well.
 
 ## Features
 
