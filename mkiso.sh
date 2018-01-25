@@ -26,7 +26,7 @@ function handle_error() {
 
 function createdir() {
 	[ -d "$1" ] && return
-	mkdir -p $1 || abort "Could not create ${ISODOWN} directory"
+	mkdir -p $1 || abort "Could not create ${1} directory"
 }
 
 # Replace a %VARNAME% with the ${VARNAME} value in a file
@@ -137,7 +137,8 @@ instPkgs \
 	/usr/share/doc/linux-image-extra-$(uname -r):linux-image-extra-$(uname -r) \
 	/usr/bin/rsync:rsync \
 	/usr/bin/pwgen:pwgen \
-	/usr/bin/mkpasswd:whois
+	/usr/bin/mkpasswd:whois \
+	/usr/bin/isohybrid:syslinux
 
 
 # Settings that can be overridden in the default.cfg or file specified on the cli
@@ -154,11 +155,11 @@ UBUNTU_VERSION=${UBUNTU_VERSION:-"16.04"}
 UBUNTU_SUBREL=${UBUNTU_SUBREL:-".3"}
 ## Source ISO settings
 ### Where the source ISO will be searched for/downloaded to
-ISODOWN=${ISODOWN:-$(readlink -f $(dirname $0)/isodown)}
+ISODIR=${ISODIR:-$(readlink -f "${CONFIGDIR}/../isos")}
 ### ISO source URL, default = ubuntu, can be overridden, but you're on your own
 ISOURL="${ISOURL:-"http://releases.ubuntu.com/${UBUNTU_VERSION}/ubuntu-${UBUNTU_VERSION}${UBUNTU_SUBREL}-server-${UBUNTU_ARCH}.iso"}"
-ISOFILE="${ISODOWN}/$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)$#\1#')"
-OUTIMAGE="$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)\.iso$#\1#')-${TITLE_LC}-${DATE}.iso"
+ISOFILE="${ISODIR}/$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)$#\1#')"
+OUTIMAGE="${ISODIR}/$(echo "${ISOURL}"|sed -e 's#.*/\(.*\)\.iso$#\1#')-${TITLE_LC}-${DATE}.iso"
 
 ## Keyboard layout, language, locale...
 KEYBOARD_LAYOUT_CODE=${KEYBOARD_LAYOUT_CODE:-"us"}
@@ -232,7 +233,7 @@ echo
 echo "Generating $OUTIMAGE from $(basename ${ISOFILE}) for Ubuntu ${UBUNTU_VERSION}${UBUNTU_SUBREL}"
 echo
 
-createdir "${ISODOWN}"
+createdir "${ISODIR}"
 createdir "${CDMOUNT}"
 createdir "${CDDIR}"
 createdir "${OVERLAY}"
@@ -394,7 +395,9 @@ sudo /usr/bin/mkisofs -quiet \
              -o $OUTIMAGE $CDDIR
 
 echo "- Fixing ISO image permissions..."
-sudo chown $USER:$(groups | awk '{print $1}') $OUTIMAGE
+sudo chown $USER:$(groups | awk '{print $1}') ${OUTIMAGE}
+
+/usr/bin/isohybrid ${OUTIMAGE}
 
 echo "- Cleaning up..."
 cleanup
